@@ -1,0 +1,33 @@
+{
+  "menuItems": [
+    "Admin",
+    "PIM",
+    "Leave",
+    "Time",
+    "Recruitment",
+    "My Info",
+    "Performance",
+    "Dashboard",
+    "Directory",
+    "Maintenance",
+    "Claim",
+    "Buzz"
+  ],
+  "widgets": [
+    "Time at Work",
+    "My Actions",
+    "Quick Launch",
+    "Buzz Latest Posts",
+    "Employees on Leave Today",
+    "Employee Distribution by Sub Unit",
+    "Employee Distribution by Location"
+  ],
+  "userMenuItems": ["About", "Support", "Change Password", "Logout"],
+  "navigation": [
+    { "menu": "Admin", "urlPart": "/admin/viewSystemUsers" },
+    { "menu": "PIM", "urlPart": "/pim/viewEmployeeList" },
+    { "menu": "Leave", "urlPart": "/leave/viewLeaveList" },
+    { "menu": "Time", "urlPart": "/time/viewEmployeeTimesheet" },
+    { "menu": "Directory", "urlPart": "/directory/viewDirectory" }
+  ]
+}

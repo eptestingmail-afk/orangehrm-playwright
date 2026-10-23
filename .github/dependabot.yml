@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # npm packages: weekly update PRs
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      playwright:
+        patterns: ['@playwright/*']
+      lint:
+        patterns: ['eslint*', 'typescript-eslint', '@eslint/*']
+
+  # GitHub Actions jo SHA par pinned hain, unke bhi updates aate rahenge
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

@@ -1,0 +1,14 @@
+# dependencies
+node_modules/
+
+# SECRETS / SESSIONS: kabhi commit nahi
+.env
+.env.*
+!.env.example
+.auth/
+
+# test outputs
+test-results/
+playwright-report/
+blob-report/
+results/

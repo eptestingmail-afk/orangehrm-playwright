@@ -1,0 +1,33 @@
+{
+  "name": "orangehrm-playwright",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright + TypeScript practice framework for the OrangeHRM open-source demo (POM, API setup, data-driven, storage state, secure CI)",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:api": "playwright test --project=api",
+    "test:smoke": "playwright test --project=chromium --project=api --grep @smoke",
+    "test:regression": "playwright test --project=chromium --project=api --grep @regression",
+    "test:ui": "playwright test --project=chromium",
+    "test:all": "playwright test",
+    "test:headed": "playwright test --project=chromium --headed",
+    "test:debug": "playwright test --project=chromium --debug",
+    "test:ui-mode": "playwright test --ui",
+    "report": "playwright show-report",
+    "audit": "npm audit --audit-level=high"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.12.0",
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.7.0",
+    "dotenv": "^16.4.5",
+    "eslint": "^9.12.0",
+    "eslint-plugin-playwright": "^2.0.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.8.0"
+  }
+}

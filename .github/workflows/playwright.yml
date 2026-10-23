@@ -1,0 +1,209 @@
+name: Playwright CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * *' # nightly full regression (UTC)
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: 'Optional tag filter, e.g. @smoke ya @regression (khali = sab)'
+        required: false
+        default: ''
+
+# SECURITY: default token sirf read kar sakta hai. Jis job ko zyada chahiye wo apne level par maange.
+permissions:
+  contents: read
+
+# Same branch/PR par nayi push aate hi purani cancel. main par runs cancel NAHI hoti (har merge ka result chahiye).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Non-secret config: GitHub Variables (Settings -> Secrets and variables -> Actions -> Variables)
+  BASE_URL: ${{ vars.BASE_URL }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Stage 1: sabse sasta check. Yahan fail hua to browser tests chalte hi nahi.
+  # Is job ko secrets ki zaroorat nahi (fork PRs par bhi safe chalta hai).
+  # ---------------------------------------------------------------------------
+  quality:
+    name: Lint, typecheck, audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false # git token disk par nahi rehta
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts # lockfile se exact install, install-scripts band (supply chain safety)
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run audit
+
+  # ---------------------------------------------------------------------------
+  # Stage 2: API tests (browser nahi, fast). Login har worker khud karta hai (API se, fixtures/test.ts mein).
+  # ---------------------------------------------------------------------------
+  api:
+    name: API tests
+    needs: quality
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging # secrets is environment se aate hain
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Secrets maujood hain? (value kabhi print nahi hoti)
+        env:
+          ORANGEHRM_USERNAME: ${{ secrets.ORANGEHRM_USERNAME }}
+          ORANGEHRM_PASSWORD: ${{ secrets.ORANGEHRM_PASSWORD }}
+        run: |
+          for name in ORANGEHRM_USERNAME ORANGEHRM_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Secret $name set nahi hai (Settings -> Environments -> staging)"
+              exit 1
+            fi
+          done
+      - name: Run API tests
+        run: npm run test:api
+        env:
+          ORANGEHRM_USERNAME: ${{ secrets.ORANGEHRM_USERNAME }}
+          ORANGEHRM_PASSWORD: ${{ secrets.ORANGEHRM_PASSWORD }}
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: ${{ !cancelled() }}
+        with:
+          name: api-report
+          # NOTE: session (cookie) kabhi disk par nahi likhi jaati, isliye artifact mein leak ka sawal hi nahi
+          path: |
+            playwright-report/
+            results/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Stage 3: UI smoke = PR gate (sirf @smoke, sirf chromium)
+  # Fork PRs par secrets nahi milte, isliye ye job unke liye skip hota hai.
+  # ---------------------------------------------------------------------------
+  ui-smoke:
+    name: UI smoke (PR gate)
+    needs: quality
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Secrets maujood hain? (value kabhi print nahi hoti)
+        env:
+          ORANGEHRM_USERNAME: ${{ secrets.ORANGEHRM_USERNAME }}
+          ORANGEHRM_PASSWORD: ${{ secrets.ORANGEHRM_PASSWORD }}
+        run: |
+          for name in ORANGEHRM_USERNAME ORANGEHRM_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Secret $name set nahi hai (Settings -> Environments -> staging)"
+              exit 1
+            fi
+          done
+      - name: Run UI smoke tests
+        run: npx playwright test --project=chromium --grep @smoke
+        env:
+          ORANGEHRM_USERNAME: ${{ secrets.ORANGEHRM_USERNAME }}
+          ORANGEHRM_PASSWORD: ${{ secrets.ORANGEHRM_PASSWORD }}
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: ${{ !cancelled() }}
+        with:
+          name: ui-smoke-report
+          path: |
+            playwright-report/
+            test-results/
+            results/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Stage 4: full regression (main + nightly + manual), 2 shards parallel, chromium + firefox
+  # ---------------------------------------------------------------------------
+  regression:
+    name: Regression (shard ${{ matrix.shard }}/2)
+    needs: [api, ui-smoke]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: staging
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    env:
+      PW_BLOB: '1' # config ko batata hai: blob report banao (baad mein merge hogi)
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium firefox
+      - name: Run regression
+        # SECURITY: user input (inputs.grep) ko seedha shell command mein nahi daalte (script injection).
+        # Pehle env variable mein, phir quoted use.
+        run: npx playwright test --shard=${{ matrix.shard }}/2 ${GREP:+--grep "$GREP"}
+        env:
+          GREP: ${{ github.event.inputs.grep }}
+          ORANGEHRM_USERNAME: ${{ secrets.ORANGEHRM_USERNAME }}
+          ORANGEHRM_PASSWORD: ${{ secrets.ORANGEHRM_PASSWORD }}
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: ${{ !cancelled() }}
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: blob-report/
+          retention-days: 3
+
+  merge-reports:
+    name: Merge HTML report
+    needs: regression
+    if: ${{ !cancelled() && needs.regression.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          path: all-blob-reports
+          pattern: blob-report-*
+          merge-multiple: true
+      - run: npx playwright merge-reports --reporter html ./all-blob-reports
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: html-report-merged
+          path: playwright-report/
+          retention-days: 14

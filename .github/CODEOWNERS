@@ -1,0 +1,11 @@
+# Branch protection mein "Require review from Code Owners" on karo.
+# @your-github-username ko apne asli GitHub username (ya team) se badlo.
+
+# CI pipeline aur security config: owner ka review zaroori
+/.github/              @your-github-username
+/playwright.config.ts  @your-github-username
+/src/config/           @your-github-username
+
+# Baaki tests
+/tests/                @your-github-username
+/src/                  @your-github-username

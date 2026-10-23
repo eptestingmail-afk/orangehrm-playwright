@@ -1,0 +1,47 @@
+[
+  {
+    "id": "wrong-password",
+    "usernameFromEnv": true,
+    "username": "",
+    "passwordFromEnv": false,
+    "password": "definitely-wrong-123",
+    "expectedAlert": "Invalid credentials",
+    "expectedRequiredErrors": 0
+  },
+  {
+    "id": "wrong-username",
+    "usernameFromEnv": false,
+    "username": "no.such.user",
+    "passwordFromEnv": true,
+    "password": "",
+    "expectedAlert": "Invalid credentials",
+    "expectedRequiredErrors": 0
+  },
+  {
+    "id": "empty-password",
+    "usernameFromEnv": true,
+    "username": "",
+    "passwordFromEnv": false,
+    "password": "",
+    "expectedAlert": "",
+    "expectedRequiredErrors": 1
+  },
+  {
+    "id": "empty-username",
+    "usernameFromEnv": false,
+    "username": "",
+    "passwordFromEnv": true,
+    "password": "",
+    "expectedAlert": "",
+    "expectedRequiredErrors": 1
+  },
+  {
+    "id": "both-empty",
+    "usernameFromEnv": false,
+    "username": "",
+    "passwordFromEnv": false,
+    "password": "",
+    "expectedAlert": "",
+    "expectedRequiredErrors": 2
+  }
+]

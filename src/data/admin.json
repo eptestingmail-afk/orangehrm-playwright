@@ -1,0 +1,5 @@
+{
+  "roles": ["Admin", "ESS"],
+  "statuses": ["Enabled", "Disabled"],
+  "knownUsername": "Admin"
+}

@@ -1,0 +1,9 @@
+{
+  "newEmployees": [
+    { "id": "first-and-last-only", "firstName": "Asha", "middleName": "", "lastNamePrefix": "Verma" },
+    { "id": "with-middle-name", "firstName": "Rohan", "middleName": "Kumar", "lastNamePrefix": "Mehta" },
+    { "id": "hyphenated-last-name", "firstName": "Meera", "middleName": "", "lastNamePrefix": "Rao-Iyer" }
+  ],
+  "listColumns": ["Id", "First (& Middle) Name", "Last Name", "Job Title", "Employment Status", "Sub Unit", "Supervisor", "Actions"],
+  "apiPageSizes": [1, 3, 5]
+}
