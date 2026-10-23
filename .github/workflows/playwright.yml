@@ -125,6 +125,12 @@ jobs:
               exit 1
             fi
           done
+      - name: Site health check (infra vs test failure)
+        run: |
+          URL="${BASE_URL:-https://opensource-demo.orangehrmlive.com}/web/index.php/auth/login"
+          for i in 1 2 3; do
+            curl -sS -o /dev/null --max-time 30 -w "attempt $i: status=%{http_code} connect=%{time_connect}s total=%{time_total}s\n" "$URL" || echo "::warning::attempt $i: site unreachable ya slow (>30s)"
+          done    
       - name: Run UI smoke tests
         run: npx playwright test --project=chromium --grep @smoke
         env:
