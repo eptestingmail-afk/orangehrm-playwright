@@ -43,6 +43,7 @@ test.describe('Login page', () => {
 
   test('forgot password link sahi page par le jata hai', { tag: '@regression' }, async ({ loginPage }) => {
     await loginPage.goToForgotPassword();
+    console.log("Hello");
   });
 
   // Logout ke liye apna alag login: worker ke saved session ko logout karte to us worker ke baaki tests bekaar ho jaate
